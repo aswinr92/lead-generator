@@ -82,33 +82,132 @@ def _get_credentials_path() -> str:
     )
 
 
-@st.cache_data(ttl=300)  # Cache for 5 minutes
-def load_vendor_data():
-    """Load and analyze vendor data."""
-    SHEET_URL = "https://docs.google.com/spreadsheets/d/1FiyUPo9ZJEDH13gKVoAC00ko1Vx9U9rdSSq1z2Jwa5U/edit?gid=0#gid=0"
-    CREDENTIALS_FILE = _get_credentials_path()
+SHEET_URL = "https://docs.google.com/spreadsheets/d/1FiyUPo9ZJEDH13gKVoAC00ko1Vx9U9rdSSq1z2Jwa5U/edit?gid=0#gid=0"
 
-    analyzer = VendorOpportunityAnalyzer(SHEET_URL, CREDENTIALS_FILE)
+# CSV cache paths — tried in order; first writable location wins
+_CSV_CACHE_PATHS = [
+    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "vendors_cache.csv"),
+    "/tmp/vendors_cache.csv",
+]
+_CSV_MAX_AGE_HOURS = 24
+
+
+def _find_fresh_csv() -> str | None:
+    """Return path to a CSV cache that exists and is < 24 hours old, or None."""
+    import time
+    for path in _CSV_CACHE_PATHS:
+        if os.path.exists(path):
+            age_hours = (time.time() - os.path.getmtime(path)) / 3600
+            if age_hours < _CSV_MAX_AGE_HOURS:
+                return path
+    return None
+
+
+def _save_csv(df: pd.DataFrame):
+    """Save DataFrame to CSV cache (first writable path wins)."""
+    for path in _CSV_CACHE_PATHS:
+        try:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            df.to_csv(path, index=False)
+            return path
+        except Exception:
+            continue
+    return None
+
+
+@st.cache_data(ttl=1800, show_spinner=False)  # 30-minute in-memory cache
+def load_vendor_data(force_sheets: bool = False) -> tuple:
+    """
+    Load vendor data and run analysis.
+
+    Fast path  — reads from CSV cache  (~2 s, used if cache < 24 h old)
+    Slow path  — reads from Google Sheets (~60 s, saves to CSV afterwards)
+
+    Returns (df, insights, opportunities, source_label)
+    """
+    # ── Fast path: CSV cache ──────────────────────────────────────────
+    if not force_sheets:
+        csv_path = _find_fresh_csv()
+        if csv_path:
+            try:
+                df_raw = pd.read_csv(csv_path)
+                age_h = (os.path.getmtime(csv_path))
+                import time
+                age_h = (time.time() - os.path.getmtime(csv_path)) / 3600
+                analyzer = VendorOpportunityAnalyzer(SHEET_URL, _get_credentials_path())
+                analyzer.df = df_raw          # inject CSV data — skip Sheets load
+                analyzer.segment_vendors()
+                return (
+                    analyzer.df,
+                    analyzer.generate_insights_summary(),
+                    analyzer.identify_cross_sell_opportunities(),
+                    f"CSV cache ({age_h:.0f}h old)",
+                )
+            except Exception:
+                pass  # corrupted CSV — fall through to Sheets
+
+    # ── Slow path: Google Sheets ──────────────────────────────────────
+    analyzer = VendorOpportunityAnalyzer(SHEET_URL, _get_credentials_path())
     analyzer.load_data()
     analyzer.segment_vendors()
-    insights = analyzer.generate_insights_summary()
-    opportunities = analyzer.identify_cross_sell_opportunities()
 
-    return analyzer.df, insights, opportunities
+    saved = _save_csv(analyzer.df)
+    source = "Google Sheets (live)" + (f" → cached to {os.path.basename(saved)}" if saved else "")
+
+    return (
+        analyzer.df,
+        analyzer.generate_insights_summary(),
+        analyzer.identify_cross_sell_opportunities(),
+        source,
+    )
 
 
 # Header
 st.markdown('<div class="main-header">💍 Wedding Vendor Intelligence Dashboard</div>',
             unsafe_allow_html=True)
 
-# Load data
-with st.spinner("Loading vendor data from Google Sheets..."):
-    try:
-        df, insights, opportunities = load_vendor_data()
-        st.success(f"✅ Loaded {len(df):,} vendors")
-    except Exception as e:
-        st.error(f"❌ Error loading data: {str(e)}")
-        st.stop()
+# ── Lazy data loading ─────────────────────────────────────────────────────
+# The app starts instantly and serves the health-check immediately.
+# Data is only loaded when the user requests it (avoids 503 timeouts on cloud).
+
+if "vendor_data" not in st.session_state:
+    st.markdown("---")
+    col_l, col_c, col_r = st.columns([1, 2, 1])
+    with col_c:
+        st.markdown("### 📊 Dashboard Ready")
+
+        csv_path = _find_fresh_csv()
+        if csv_path:
+            import time as _t
+            age_h = (_t.time() - os.path.getmtime(csv_path)) / 3600
+            st.success(
+                f"CSV cache available ({age_h:.0f}h old) — "
+                f"loading will take **~2 seconds**."
+            )
+        else:
+            st.info(
+                "No local cache found. First load fetches from Google Sheets "
+                "and takes **~60 seconds**. Subsequent loads use a CSV cache (~2 s)."
+            )
+
+        st.markdown(" ")
+        if st.button("▶  Load Vendor Data", type="primary", use_container_width=True):
+            with st.spinner("Loading vendor data…"):
+                try:
+                    data = load_vendor_data()
+                    st.session_state["vendor_data"] = data
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"❌ Error: {e}")
+                    st.exception(e)
+    st.stop()
+
+# Unpack session state (persists for the session; no re-fetch on page interaction)
+if "vendor_data" not in st.session_state:
+    st.error("Session state lost — please refresh the page.")
+    st.stop()
+
+df, insights, opportunities, _data_source = st.session_state["vendor_data"]
 
 # Sidebar filters
 st.sidebar.header("🔍 Filters")
@@ -138,6 +237,14 @@ rating_range = st.sidebar.slider(
     value=(0.0, 5.0),
     step=0.1
 )
+
+st.sidebar.markdown("---")
+st.sidebar.caption(f"Data source: {_data_source}")
+if st.sidebar.button("🔄 Refresh from Sheets", help="Re-fetch live data from Google Sheets (~60s)"):
+    st.cache_data.clear()
+    if "vendor_data" in st.session_state:
+        del st.session_state["vendor_data"]
+    st.rerun()
 
 # Apply filters
 filtered_df = df.copy()

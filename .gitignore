@@ -32,6 +32,9 @@ output/*.xlsx
 # Cache files (generated at runtime, not needed in repo)
 cache/
 
+# Dashboard CSV cache (large, generated at runtime)
+data/vendors_cache.csv
+
 # IDE
 .vscode/
 .idea/
