@@ -1,0 +1,23 @@
+# Web scraping
+selenium==4.27.1
+webdriver-manager==4.0.2
+
+# Data handling
+pandas>=2.1.0
+python-dotenv==1.0.1
+pyyaml==6.0.2
+
+# Utilities
+tenacity==9.0.0  # For retry logic
+fake-useragent==1.5.1  # For rotating user agents
+
+# Data cleaning and deduplication
+thefuzz==0.22.1  # Fuzzy string matching (formerly fuzzywuzzy)
+python-Levenshtein==0.25.0  # Speed up fuzzy matching
+phonenumbers==8.13.27  # Phone number parsing and validation
+
+# Google Sheets API
+gspread==5.12.4
+google-auth==2.27.0
+google-auth-oauthlib==1.2.0
+google-auth-httplib2==0.2.0

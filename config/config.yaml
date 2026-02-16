@@ -1,0 +1,66 @@
+# Wedding Vendor Scraper Configuration
+
+# Target cities in Kerala
+cities:
+  - Kozhikode
+  - Kochi
+  - Thiruvananthapuram
+  - Thrissur
+  - Alappuzha
+  - Kannur
+  - Kollam
+  - Malappuram
+  - Palakkad
+  - Pathanamthitta
+  - Wayanad
+  - Idukki
+  - Kasaragod
+  - Guruvayur
+  - Munnar
+  - Varkala
+
+# Vendor categories
+categories:
+  - bridal wear designers
+
+# Scraping settings
+scraping:
+  max_results_per_search: 150  # Number of vendors to scrape per city/category combo
+  scroll_pause_time: 1  # Seconds to wait between scrolls (optimized: was 2)
+  rate_limit_delay: 1  # Seconds between requests (optimized: was 3)
+  implicit_wait: 5  # Selenium implicit wait time (optimized: was 10)
+  headless: true  # Headless mode is faster (no browser window)
+
+# Output settings
+output:
+  csv_file: "output/vendors_{timestamp}.csv"
+  include_timestamp: true
+
+# Google Sheets export settings
+google_sheets:
+  credentials_file: "config/google_credentials.json"
+  default_sheet_name: "Wedding Vendors - itsmy.wedding"
+  data_tab_name: "Vendor Data"
+  summary_tab_name: "Summary & Statistics"
+
+  formatting:
+    freeze_header: true
+    auto_resize_columns: true
+    enable_filters: true
+    bold_headers: true
+
+    rating_colors:
+      excellent:
+        threshold: 4.0
+        color: "#d9ead3"  # Light green
+      good:
+        threshold: 3.0
+        color: "#fff2cc"  # Light yellow
+      poor:
+        threshold: 0.0
+        color: "#f4cccc"  # Light red
+
+  api:
+    max_retries: 3
+    retry_delay: 2
+    batch_size: 1000

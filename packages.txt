@@ -1,0 +1,2 @@
+# System packages for Streamlit Community Cloud
+# (no Chrome/Selenium needed — dashboard reads from Google Sheets directly)

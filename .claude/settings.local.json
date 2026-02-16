@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python main.py:*)",
+      "Bash(where:*)",
+      "Bash(py:*)",
+      "Bash(/c/Users/ACER/AppData/Local/Microsoft/WindowsApps/python.exe --version)",
+      "Bash(pip install:*)",
+      "Bash(test:*)",
+      "Bash(python verify_setup.py:*)",
+      "Bash(python -m py_compile:*)",
+      "Bash(python -c:*)",
+      "Bash(python clean_data.py:*)",
+      "Bash(ls:*)"
+    ]
+  }
+}
