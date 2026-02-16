@@ -64,18 +64,16 @@ def _get_credentials_path() -> str:
         return local_path
 
     # Running on Streamlit Cloud — reconstruct credentials from st.secrets
-    if "gcp_service_account" in st.secrets:
-        import json
-        import tempfile
-        creds_dict = dict(st.secrets["gcp_service_account"])
-        tmp = tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False, dir=tempfile.gettempdir()
-        )
-        json.dump(creds_dict, tmp)
-        tmp.close()
-        return tmp.name
-
-        json_env = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
+    # if "gcp_service_account" in st.secrets:
+    #     import json
+    #     import tempfile
+    #     creds_dict = dict(st.secrets["gcp_service_account"])
+    #     tmp = tempfile.NamedTemporaryFile(
+    #         mode="w", suffix=".json", delete=False, dir=tempfile.gettempdir()
+    #     )
+    #     json.dump(creds_dict, tmp)
+    #     tmp.close()
+    #     return tmp.name
     
     json_env = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
     if json_env:
