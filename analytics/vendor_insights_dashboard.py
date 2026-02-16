@@ -75,6 +75,18 @@ def _get_credentials_path() -> str:
         tmp.close()
         return tmp.name
 
+        json_env = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
+    
+    json_env = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
+    if json_env:
+        import json, tempfile
+        creds_dict = json.loads(json_env)
+
+        tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False)
+        json.dump(creds_dict, tmp)
+        tmp.close()
+        return tmp.name
+
     raise FileNotFoundError(
         "Google credentials not found.\n"
         "• Locally: add config/google_credentials.json\n"
